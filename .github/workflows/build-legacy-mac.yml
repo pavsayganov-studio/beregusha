@@ -36,7 +36,6 @@ jobs:
         cp sing-box "$APP_BUNDLE/Contents/Resources/sing-box"
         chmod +x "$APP_BUNDLE/Contents/Resources/sing-box"
         
-        # Компилируем все 3 файла
         swiftc main.swift AppDelegate.swift ViewController.swift \
           -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
           -target x86_64-apple-macosx10.10
