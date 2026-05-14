@@ -1,0 +1,51 @@
+name: Build macOS 10.10 Legacy Client
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-legacy:
+    runs-on: macos-12 # Используем старый runner, чтобы избежать проблем с линковкой новых библиотек
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go 1.20 (Required for macOS 10.10)
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Clone and Build sing-box core
+      run: |
+        git clone -b v1.4.5 https://github.com/SagerNet/sing-box.git core-build
+        cd core-build
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../macos-legacy/sing-box ./cmd/sing-box
+
+    - name: Compile Swift App
+      run: |
+        cd macos-legacy
+        APP_NAME="HiddifyLegacy"
+        APP_BUNDLE="$APP_NAME.app"
+        
+        mkdir -p "$APP_BUNDLE/Contents/MacOS"
+        mkdir -p "$APP_BUNDLE/Contents/Resources"
+        
+        cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
+        cp sing-box "$APP_BUNDLE/Contents/Resources/sing-box"
+        chmod +x "$APP_BUNDLE/Contents/Resources/sing-box"
+        
+        # Компилируем нативный код с поддержкой 10.10
+        swiftc main.swift AppDelegate.swift \
+          -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
+          -target x86_64-apple-macosx10.10
+          
+        # Пакуем в архив для релиза
+        zip -r ../Hiddify-macOS-10.10-Legacy.zip "$APP_BUNDLE"
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Hiddify-Legacy-App
+        path: Hiddify-macOS-10.10-Legacy.zip
