@@ -7,12 +7,12 @@ on:
 
 jobs:
   build-legacy:
-    runs-on: macos-12 # Используем старый runner, чтобы избежать проблем с линковкой новых библиотек
+    runs-on: macos-12
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go 1.20 (Required for macOS 10.10)
+    - name: Set up Go 1.20
       uses: actions/setup-go@v4
       with:
         go-version: '1.20'
@@ -36,12 +36,11 @@ jobs:
         cp sing-box "$APP_BUNDLE/Contents/Resources/sing-box"
         chmod +x "$APP_BUNDLE/Contents/Resources/sing-box"
         
-        # Компилируем нативный код с поддержкой 10.10
-        swiftc main.swift AppDelegate.swift \
+        # Компилируем все 3 файла
+        swiftc main.swift AppDelegate.swift ViewController.swift \
           -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
           -target x86_64-apple-macosx10.10
           
-        # Пакуем в архив для релиза
         zip -r ../Hiddify-macOS-10.10-Legacy.zip "$APP_BUNDLE"
 
     - name: Upload Artifact
