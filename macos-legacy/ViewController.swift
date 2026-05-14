@@ -1,43 +1,71 @@
 import Cocoa
 
 class ViewController: NSViewController {
+    
     var connectButton: NSButton!
     var statusLabel: NSTextField!
+    var titleLabel: NSTextField!
     var currentPID: String?
     
     override func loadView() {
-        let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 250, height: 180))
+        // 1. Создаем эффект матового стекла (Yosemite 10.10 API)
+        let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 280, height: 350))
         visualEffectView.material = .dark
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
         
-        connectButton = NSButton(frame: NSRect(x: 50, y: 70, width: 150, height: 40))
-        connectButton.title = "Connect"
-        connectButton.bezelStyle = .regularSquare
-        connectButton.target = self
-        connectButton.action = #selector(toggleConnection)
+        // 2. Заголовок "Hiddify"
+        titleLabel = NSTextField(frame: NSRect(x: 0, y: 280, width: 280, height: 40))
+        titleLabel.isEditable = false
+        titleLabel.isBordered = false
+        titleLabel.drawsBackground = false
+        titleLabel.alignment = .center
+        titleLabel.textColor = NSColor.white
+        // Используем HelveticaNeue-Light для "воздушного" дизайна 10.10
+        titleLabel.font = NSFont(name: "HelveticaNeue-Light", size: 28) ?? NSFont.systemFont(ofSize: 28)
+        titleLabel.stringValue = "Hiddify"
         
-        statusLabel = NSTextField(frame: NSRect(x: 0, y: 20, width: 250, height: 30))
+        // 3. Статус (Подключен / Отключен)
+        statusLabel = NSTextField(frame: NSRect(x: 0, y: 240, width: 280, height: 20))
         statusLabel.isEditable = false
         statusLabel.isBordered = false
         statusLabel.drawsBackground = false
         statusLabel.alignment = .center
-        statusLabel.textColor = NSColor.white
-        statusLabel.stringValue = "Disconnected"
-        statusLabel.font = NSFont.systemFont(ofSize: 14)
+        statusLabel.textColor = NSColor(calibratedWhite: 1.0, alpha: 0.6)
+        statusLabel.font = NSFont(name: "HelveticaNeue", size: 14) ?? NSFont.systemFont(ofSize: 14)
+        statusLabel.stringValue = "Ready to connect"
         
-        visualEffectView.addSubview(connectButton)
+        // 4. Большая минималистичная круглая кнопка
+        connectButton = NSButton(frame: NSRect(x: 65, y: 60, width: 150, height: 150))
+        connectButton.title = "OFF"
+        connectButton.font = NSFont(name: "HelveticaNeue-Medium", size: 32)
+        connectButton.isBordered = false
+        connectButton.wantsLayer = true
+        connectButton.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.1).cgColor
+        connectButton.layer?.cornerRadius = 75 // Делает кнопку круглой (150/2)
+        connectButton.layer?.borderWidth = 2
+        connectButton.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.3).cgColor
+        connectButton.target = self
+        connectButton.action = #selector(toggleConnection)
+        
+        visualEffectView.addSubview(titleLabel)
         visualEffectView.addSubview(statusLabel)
+        visualEffectView.addSubview(connectButton)
         
         self.view = visualEffectView
     }
     
     @objc func toggleConnection() {
-        if currentPID != nil { stopVPN() } else { startVPN() }
+        if currentPID != nil {
+            stopVPN()
+        } else {
+            startVPN()
+        }
     }
     
     func startVPN() {
         statusLabel.stringValue = "Connecting..."
+        statusLabel.textColor = NSColor.orange
         
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VPNClient")
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true, attributes: nil)
@@ -46,6 +74,7 @@ class ViewController: NSViewController {
         let logPath = appSupport.appendingPathComponent("vpn.log").path
         let binaryPath = Bundle.main.path(forResource: "sing-box", ofType: nil)!
         
+        // Заглушка конфигурации (позже мы научим код читать реальный конфиг Hiddify)
         let configJSON = """
         {
             "log": { "level": "info" },
@@ -62,6 +91,7 @@ class ViewController: NSViewController {
         """
         try? configJSON.write(toFile: configPath, atomically: true, encoding: .utf8)
         
+        // Запуск sing-box через AppleScript с запросом прав
         let shellCommand = "nohup \\\"\(binaryPath)\\\" run -c \\\"\(configPath)\\\" > \\\"\(logPath)\\\" 2>&1 & echo $!"
         let scriptSource = "do shell script \"\(shellCommand)\" with administrator privileges"
         
@@ -70,11 +100,16 @@ class ViewController: NSViewController {
             let output = scriptObject.executeAndReturnError(&errorInfo)
             if let pid = output.stringValue, !pid.isEmpty {
                 self.currentPID = pid
-                self.statusLabel.stringValue = "Connected (PID: \(pid))"
-                self.connectButton.title = "Disconnect"
-                self.connectButton.state = .on
+                self.statusLabel.stringValue = "Secured"
+                self.statusLabel.textColor = NSColor(calibratedRed: 0.2, green: 0.8, blue: 0.4, alpha: 1.0)
+                
+                // Анимация кнопки
+                self.connectButton.title = "ON"
+                self.connectButton.layer?.backgroundColor = NSColor(calibratedRed: 0.2, green: 0.8, blue: 0.4, alpha: 0.2).cgColor
+                self.connectButton.layer?.borderColor = NSColor(calibratedRed: 0.2, green: 0.8, blue: 0.4, alpha: 1.0).cgColor
             } else {
-                self.statusLabel.stringValue = "Error: Auth Failed"
+                self.statusLabel.stringValue = "Auth Failed"
+                self.statusLabel.textColor = NSColor.red
             }
         }
     }
@@ -86,9 +121,13 @@ class ViewController: NSViewController {
         if let scriptObject = NSAppleScript(source: scriptSource) {
             scriptObject.executeAndReturnError(&errorInfo)
             self.currentPID = nil
-            self.statusLabel.stringValue = "Disconnected"
-            self.connectButton.title = "Connect"
-            self.connectButton.state = .off
+            self.statusLabel.stringValue = "Ready to connect"
+            self.statusLabel.textColor = NSColor(calibratedWhite: 1.0, alpha: 0.6)
+            
+            // Возвращаем кнопку в исходное состояние
+            self.connectButton.title = "OFF"
+            self.connectButton.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.1).cgColor
+            self.connectButton.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.3).cgColor
         }
     }
 }
