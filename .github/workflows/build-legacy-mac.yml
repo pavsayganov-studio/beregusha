@@ -5,6 +5,10 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+# Обязательно нужны права для создания релизов
+permissions:
+  contents: write
+
 jobs:
   build-legacy:
     runs-on: macos-12
@@ -42,8 +46,12 @@ jobs:
           
         zip -r ../Hiddify-macOS-10.10-Legacy.zip "$APP_BUNDLE"
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+    - name: Publish to GitHub Releases
+      uses: softprops/action-gh-release@v1
       with:
-        name: Hiddify-Legacy-App
-        path: Hiddify-macOS-10.10-Legacy.zip
+        tag_name: "legacy-latest"
+        name: "macOS 10.10 Legacy Build"
+        body: "Автоматическая сборка минималистичного клиента для MacBook Air 2011 (macOS 10.10+)."
+        files: Hiddify-macOS-10.10-Legacy.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
